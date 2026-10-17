@@ -336,13 +336,10 @@ def main() -> None:
     def save_and_archive(annotate_fn, *fn_args):
         annotate_fn(args.image, output, *fn_args)
         print(f"[+] Annotated solution image saved to: {output}")
-        import shutil
         if output.resolve() != solutions_target.resolve():
+            import shutil
             shutil.copyfile(output, solutions_target)
             print(f"[+] Solution archived to puzzles/solutions: {solutions_target}")
-        elif args.image.parent.resolve() != DEFAULT_SOLUTIONS_DIR.resolve():
-            local_copy = args.image.with_name(args.image.stem + "_solution.png")
-            shutil.copyfile(solutions_target, local_copy)
 
     board = None
     if not args.force_ollama:

@@ -148,24 +148,24 @@ Riddlekeeper includes an end-to-end multimodal perception pipeline ([pipeline.py
 
 ```powershell
 # Solve a Grid Maze image (draws glowing navigation path)
-python -m riddlekeeper.vision.pipeline Project\puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\puzzle.png
 
 # Solve an 8-Queens chessboard image (places ruby badges on ranks)
-python -m riddlekeeper.vision.pipeline Project\queens_puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\queens_puzzle.png
 
 # Solve a Sudoku puzzle image (fills solved numbers in highlighted blue cells)
-python -m riddlekeeper.vision.pipeline Project\sudoku_puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\sudoku_puzzle.png
 
 # Solve a Flow Free image (draws continuous, non-overlapping colored pipes)
-python -m riddlekeeper.vision.pipeline Project\flow_puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\flow_puzzle.png
 
 # Solve a Sokoban box-pushing image (draws push vectors and step banners)
-python -m riddlekeeper.vision.pipeline Project\sokoban_puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\sokoban_puzzle.png
 ```
 
 Each command automatically archives the annotated solution image directly into:
 [`riddlekeeper/puzzles/solutions/<image_stem>_solution.png`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/puzzles/solutions)
-while keeping a convenient copy next to the input file (e.g., `Project/sudoku_puzzle_solution.png`). Custom destinations can also be specified using the `--output` flag.
+while keeping a convenient copy next to the input file (e.g., `riddlekeeper/puzzles/sudoku_puzzle_solution.png`). Custom destinations can also be specified using the `--output` flag.
 
 ---
 
@@ -173,7 +173,7 @@ while keeping a convenient copy next to the input file (e.g., `Project/sudoku_pu
 
 #### Q1: "Are the images being generated or edited using Gemini or cloud models in Antigravity?"
 **No, absolutely not.**
-* **Input generation**: The benchmark puzzle images in `Project/` are generated locally by Python scripts using `matplotlib` and `PIL`.
+* **Input generation**: The benchmark puzzle images in `riddlekeeper/puzzles/` are generated locally by Python scripts using `matplotlib` and `PIL`.
 * **Solving**: The solvers are pure Python algorithms running on your local machine.
 * **Image editing / annotation**: The solution paths, numbers, badges, and markers are drawn directly onto the original image pixels locally using `Pillow` (`PIL.ImageDraw`).
 * **Zero cloud calls**: The pipeline works completely offline without touching Gemini, Antigravity cloud services, or any external API.

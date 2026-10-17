@@ -20,7 +20,7 @@ python -m riddlekeeper.puzzles.tests
 
 # Transcribe and solve a maze image (requires Ollama + Pillow)
 ollama pull qwen2.5vl:3b
-python -m riddlekeeper.vision.pipeline Project\puzzle.png
+python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\puzzle.png
 ```
 
 The image pipeline first reads clean, color-coded 8x8 maze images locally, so
@@ -32,6 +32,7 @@ locally available Ollama vision model.
 
 ## Project structure
 
+- `puzzles/`: Symbolic solver implementations and input benchmark puzzle images (`puzzle.png`, `queens_puzzle.png`, `sudoku_puzzle.png`, `flow_puzzle.png`, `sokoban_puzzle.png`).
 - `puzzles/base.py`: Defines the shared puzzle, solver, and `SolveResult` contracts.
 - `puzzles/registry.py`: Extensible solver registry with duplicate checks and auto-discovery.
 - `puzzles/sudoku.py`: Backtracking solver with minimum-remaining-values (MRV) cell selection.
@@ -44,7 +45,7 @@ locally available Ollama vision model.
 - `agent/`: Orchestration layer (`RiddlekeeperAgent`, `Agent`, `Request`, `Result`) with state/time budgets, execution traces, independent validation, and dynamic replanning.
 - `environment.py`, `models.py`, `train.py`, `evaluate.py`, and `demo.py`: Exact Bellman-Ford grid solver and a learned CNN policy baseline for grid navigation.
 - `puzzles/tests.py`: Dependency-free 30-test regression suite covering valid, invalid, and unsatisfiable inputs across all puzzle modules.
-- `.gitignore`: Repository hygiene configuration ignoring bytecode (`__pycache__`), virtual environments (`.venv`), temporary logs, OS artifacts, and presentation binaries.
+- `.gitignore`: Repository hygiene configuration ignoring research papers (`*.pdf`), `Project/` folder, bytecode (`__pycache__`), virtual environments (`.venv`), temporary logs, OS artifacts, and presentation binaries.
 
 ## Implementation roadmap status
 

@@ -95,3 +95,10 @@ scratch/
 *.pt
 *.pth
 !riddlekeeper/checkpoints/*.pt
+
+# Research papers
+*.pdf
+
+# Project folder
+Project/
+
