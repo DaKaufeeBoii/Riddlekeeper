@@ -94,7 +94,7 @@ scratch/
 # Large model training dumps (preserve default repo checkpoints)
 *.pt
 *.pth
-!riddlekeeper/checkpoints/*.pt
+!checkpoints/*.pt
 
 # Research papers
 *.pdf
