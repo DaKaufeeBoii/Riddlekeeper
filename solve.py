@@ -1,5 +1,13 @@
 import argparse
+import sys
 from pathlib import Path
+
+# Ensure parent directory is on sys.path so 'riddlekeeper' package can always be imported
+_repo_dir = Path(__file__).resolve().parent
+if str(_repo_dir.parent) not in sys.path:
+    sys.path.insert(0, str(_repo_dir.parent))
+if str(_repo_dir) not in sys.path:
+    sys.path.insert(0, str(_repo_dir))
 
 from riddlekeeper.puzzles.flow import FlowBoard, FlowPuzzle
 from riddlekeeper.puzzles.pipes import PipesBoard, PipesPuzzle
@@ -26,15 +34,20 @@ SAMPLE_SUDOKU = [
 
 
 SAMPLE_SOKOBAN = """
-#####
-#@$.#
-#####
-"""
+######
+#  . #
+# $$ #
+# .# #
+#  @ #
+######
+""".strip()
 
 SAMPLE_FLOW = [
-    [1, 2, 3],
-    [0, 0, 0],
-    [1, 2, 3],
+    [1, 2, 0, 0, 0],
+    [0, 3, 4, 5, 2],
+    [0, 0, 0, 0, 5],
+    [0, 0, 0, 0, 0],
+    [1, 0, 0, 3, 4],
 ]
 
 SAMPLE_PIPES = [

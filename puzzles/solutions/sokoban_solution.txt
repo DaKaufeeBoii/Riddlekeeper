@@ -1,0 +1,5 @@
+Puzzle: sokoban
+Solver: sokoban-astar
+Result: Solved; explored 425 states
+Actions: 21
+left up push_up down down right right up up push_left right down down left left up left up up push_right push_down

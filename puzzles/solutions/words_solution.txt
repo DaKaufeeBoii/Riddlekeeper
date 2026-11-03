@@ -1,0 +1,6 @@
+Puzzle: words
+Solver: words-search
+Result: Solved; explored 4 states
+Word 'CAT': (0, 0) -> (0, 1) -> (0, 2)
+Word 'DOG': (1, 0) -> (1, 1) -> (1, 2)
+Word 'FOX': (2, 0) -> (2, 1) -> (2, 2)

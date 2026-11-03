@@ -1,0 +1,4 @@
+Puzzle: pipes
+Solver: pipes-search
+Result: Solved; explored 5 states
+Solved rotations (clock-wise 90 deg): (1, 2, 0, 3)

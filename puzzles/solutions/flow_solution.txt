@@ -1,0 +1,8 @@
+Puzzle: flow
+Solver: flow-search
+Result: Solved; explored 35 states
+Color 1 path: (0, 0) -> (1, 0) -> (2, 0) -> (3, 0) -> (4, 0)
+Color 2 path: (0, 1) -> (0, 2) -> (0, 3) -> (0, 4) -> (1, 4)
+Color 3 path: (1, 1) -> (2, 1) -> (3, 1) -> (4, 1) -> (4, 2) -> (4, 3)
+Color 4 path: (1, 2) -> (2, 2) -> (3, 2) -> (3, 3) -> (3, 4) -> (4, 4)
+Color 5 path: (1, 3) -> (2, 3) -> (2, 4)

@@ -85,6 +85,8 @@ Thumbs.db
 tmp/
 temp/
 scratch/
+*_dump.txt
+ppt_dump.txt
 
 # Presentation / Office binaries
 *.pptx

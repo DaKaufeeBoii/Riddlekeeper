@@ -3,7 +3,16 @@
 Run with: python -m riddlekeeper.puzzles.tests
 """
 
+import sys
+from pathlib import Path
 import unittest
+
+# Ensure parent directory is on sys.path so 'riddlekeeper' package can always be imported
+_repo_dir = Path(__file__).resolve().parents[1]
+if str(_repo_dir.parent) not in sys.path:
+    sys.path.insert(0, str(_repo_dir.parent))
+if str(_repo_dir) not in sys.path:
+    sys.path.insert(0, str(_repo_dir))
 
 from riddlekeeper.agent.api import Agent, Request
 from riddlekeeper.agent.orchestrator import AgentRequest, RiddlekeeperAgent
@@ -141,9 +150,39 @@ class PuzzleSolverTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SokobanBoard.from_string("#####\n# $.#\n#####")
 
+    def test_sokoban_tactical_two_boxes_solved(self):
+        grid = """
+######
+#  . #
+# $$ #
+# .# #
+#  @ #
+######
+"""
+        b = SokobanBoard.from_string(grid.strip())
+        p = SokobanPuzzle(b)
+        res = default_registry().solve(p)
+        self.assertTrue(res.solved)
+        self.assertTrue(p.is_solved(res.final_state))
+        self.assertEqual(len(res.actions), 21)
+
     # ==========================
     # Flow Free Tests
     # ==========================
+    def test_flow_challenging_5x5_five_colors_solved(self):
+        board_list = [
+            [1, 2, 0, 0, 0],
+            [0, 3, 4, 5, 2],
+            [0, 0, 0, 0, 5],
+            [0, 0, 0, 0, 0],
+            [1, 0, 0, 3, 4]
+        ]
+        board = FlowBoard.from_list(board_list)
+        p = FlowPuzzle(board)
+        res = default_registry().solve(p)
+        self.assertTrue(res.solved)
+        self.assertTrue(p.is_solved(res.final_state))
+        self.assertEqual(len(res.final_state), 5)
     def test_flow_simple_solved(self):
         board_list = [
             [1, 2, 3],

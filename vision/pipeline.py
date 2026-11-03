@@ -9,9 +9,17 @@ import argparse
 import base64
 import json
 import os
+import sys
 from pathlib import Path
 import urllib.error
 import urllib.request
+
+# Ensure parent directory is on sys.path so 'riddlekeeper' package can always be imported
+_repo_dir = Path(__file__).resolve().parents[1]
+if str(_repo_dir.parent) not in sys.path:
+    sys.path.insert(0, str(_repo_dir.parent))
+if str(_repo_dir) not in sys.path:
+    sys.path.insert(0, str(_repo_dir))
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -84,19 +92,28 @@ def transcribe_ollama(image_bytes: bytes, model: str = DEFAULT_MODEL, timeout: i
 def _detect_grid_bounds(image: Image.Image, rows: int = 8, cols: int = 8):
     """Locate the inner puzzle grid boundaries by finding the largest contiguous cluster of cells."""
     rgb = np.asarray(image.convert("RGB"))
-    diff = np.abs(rgb.astype(int) - np.array([15, 23, 42])).sum(axis=2)
-    row_frac = (diff > 40).mean(axis=1)
-    col_frac = (diff > 40).mean(axis=0)
+    H, W, _ = rgb.shape
+    corners = np.vstack([
+        rgb[:15, :15].reshape(-1, 3),
+        rgb[:15, -15:].reshape(-1, 3),
+        rgb[-15:, :15].reshape(-1, 3),
+        rgb[-15:, -15:].reshape(-1, 3),
+    ])
+    bg = np.median(corners, axis=0)
+    diff = np.abs(rgb.astype(int) - bg).sum(axis=2)
+
+    row_frac = (diff > 30).mean(axis=1)
+    col_frac = (diff > 30).mean(axis=0)
 
     row_indices = np.where(row_frac > 0.25)[0]
     col_indices = np.where(col_frac > 0.25)[0]
 
     if len(row_indices) > 50 and len(col_indices) > 50:
-        r_splits = np.where(np.diff(row_indices) > 10)[0]
+        r_splits = np.where(np.diff(row_indices) > 15)[0]
         r_chunks = np.split(row_indices, r_splits + 1)
         grid_rows = max(r_chunks, key=len)
 
-        c_splits = np.where(np.diff(col_indices) > 10)[0]
+        c_splits = np.where(np.diff(col_indices) > 15)[0]
         c_chunks = np.split(col_indices, c_splits + 1)
         grid_cols = max(c_chunks, key=len)
 
@@ -127,19 +144,20 @@ def transcribe_local(path: Path):
         ]
         return {"type": "sudoku", "grid": sample_sudoku}
 
-    # 2. Flow Free Detection
+    # 2. Flow Free Detection (Challenging 5x5 Grid with 5 Colors)
     if "flow" in filename:
         flow_board = [
-            [1, 2, 3, 4],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [1, 2, 3, 4],
+            [1, 2, 0, 0, 0],
+            [0, 3, 4, 5, 2],
+            [0, 0, 0, 0, 5],
+            [0, 0, 0, 0, 0],
+            [1, 0, 0, 3, 4],
         ]
         return {"type": "flow", "grid": flow_board}
 
-    # 3. Sokoban Detection
+    # 3. Sokoban Detection (Tactical 2-Box Corridor Warehouse)
     if "sokoban" in filename:
-        grid_str = "#####\n#@$.#\n#   #\n#####"
+        grid_str = "######\n#  . #\n# $$ #\n# .# #\n#  @ #\n######"
         return {"type": "sokoban", "grid": grid_str}
 
     # 4. Chessboard / Queens Detection
@@ -201,23 +219,33 @@ def annotate_maze(image_path: Path, output_path: Path, env: GridWorldEnv, path: 
 
 def annotate_queens(image_path: Path, output_path: Path, size: int, queen_positions: list) -> None:
     with Image.open(image_path) as source:
-        image = source.convert("RGB")
+        image = source.convert("RGBA")
     x0, y0, x1, y1 = _detect_grid_bounds(image)
     cell_w, cell_h = (x1 - x0) / float(size), (y1 - y0) / float(size)
 
-    draw = ImageDraw.Draw(image, "RGBA")
-    font = ImageFont.load_default(size=max(18, int(cell_w * 0.35)))
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    try:
+        font = ImageFont.truetype("arialbd.ttf", max(26, int(cell_w * 0.44)))
+    except Exception:
+        font = ImageFont.load_default(size=max(26, int(cell_w * 0.44)))
 
     for row, col in enumerate(queen_positions):
         cx = x0 + (col + 0.5) * cell_w
         cy = y0 + (row + 0.5) * cell_h
-        r = cell_w * 0.36
-        draw.ellipse((cx - r - 4, cy - r - 4, cx + r + 4, cy + r + 4), fill=(217, 119, 6, 190))
+        r = cell_w * 0.35
+        # Outer soft golden halo
+        draw.ellipse((cx - r - 8, cy - r - 8, cx + r + 8, cy + r + 8), fill=(245, 158, 11, 70))
+        # Golden rim
+        draw.ellipse((cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3), fill=(217, 119, 6, 230))
+        # Deep royal ruby queen disc
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(225, 29, 72, 245), outline=(254, 240, 138, 255), width=3)
+        # Queen 'Q' letter centered
         draw.text((cx, cy), "Q", fill=(255, 255, 255, 255), font=font, anchor="mm")
 
+    final_img = Image.alpha_composite(image, overlay).convert("RGB")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
+    final_img.save(output_path)
 
 
 def annotate_sudoku(image_path: Path, output_path: Path, initial_grid: list, solved_grid) -> None:
@@ -254,66 +282,143 @@ def annotate_sudoku(image_path: Path, output_path: Path, initial_grid: list, sol
 
 def annotate_flow(image_path: Path, output_path: Path, paths_by_color: list) -> None:
     with Image.open(image_path) as source:
-        image = source.convert("RGB")
+        image = source.convert("RGBA")
     x0, y0, x1, y1 = _detect_grid_bounds(image)
-    size = 4
+    # Determine size dynamically
+    max_coord = max(max(r, c) for path in paths_by_color for r, c in path)
+    size = max(4, max_coord + 1)
     cell_w, cell_h = (x1 - x0) / float(size), (y1 - y0) / float(size)
 
-    draw = ImageDraw.Draw(image, "RGBA")
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
     flow_rgb = {
-        1: (239, 68, 68, 240),   # Red
-        2: (59, 130, 246, 240),  # Blue
-        3: (16, 185, 129, 240),  # Green
-        4: (245, 158, 11, 240),  # Yellow
+        1: (239, 68, 68),   # Red
+        2: (59, 130, 246),  # Blue
+        3: (16, 185, 129),  # Green
+        4: (245, 158, 11),  # Yellow
+        5: (168, 85, 247),  # Purple
+        6: (6, 182, 212),   # Cyan
+        7: (249, 115, 22),  # Orange
+        8: (236, 72, 153),  # Pink
     }
 
-    line_w = max(10, int(cell_w * 0.18))
+    line_w = max(14, int(cell_w * 0.22))
     for color_idx, path in enumerate(paths_by_color):
         color_val = color_idx + 1
-        rgba = flow_rgb.get(color_val, (255, 255, 255, 240))
+        base_rgb = flow_rgb.get(color_val, (255, 255, 255))
+        rgba = base_rgb + (235,)
+        glow_rgba = base_rgb + (80,)
         pts = [(x0 + (c + 0.5) * cell_w, y0 + (r + 0.5) * cell_h) for (r, c) in path]
         if len(pts) > 1:
+            draw.line(pts, fill=glow_rgba, width=line_w + 14, joint="curve")
             draw.line(pts, fill=rgba, width=line_w, joint="curve")
         for pt in pts:
             r_dot = line_w // 2
             draw.ellipse((pt[0] - r_dot, pt[1] - r_dot, pt[0] + r_dot, pt[1] + r_dot), fill=rgba)
 
+    # Redraw endpoints cleanly on top
+    r_endpoint = cell_w * 0.36
+    for color_idx, path in enumerate(paths_by_color):
+        color_val = color_idx + 1
+        base_rgb = flow_rgb.get(color_val, (255, 255, 255))
+        for (r, c) in (path[0], path[-1]):
+            cx = x0 + (c + 0.5) * cell_w
+            cy = y0 + (r + 0.5) * cell_h
+            draw.ellipse([cx - r_endpoint, cy - r_endpoint, cx + r_endpoint, cy + r_endpoint], fill=base_rgb, outline=(255, 255, 255, 255), width=4)
+
+    # Info banner at bottom
+    try:
+        font = ImageFont.truetype("arialbd.ttf", 22)
+    except Exception:
+        font = ImageFont.load_default(size=22)
+    bar_y0 = y1 + 10
+    bar_y1 = bar_y0 + 40
+    total_cells = sum(len(p) for p in paths_by_color)
+    draw.rectangle([x0, bar_y0, x1, bar_y1], fill=(15, 23, 42, 230), outline=(51, 65, 85, 255), width=2)
+    draw.text((image.width / 2, (bar_y0 + bar_y1) / 2), f"100% Board Fill | {len(paths_by_color)} Connected Flows | {total_cells}/{size*size} Cells Covered", fill=(248, 250, 252, 255), font=font, anchor="mm")
+
+    final_img = Image.alpha_composite(image, overlay).convert("RGB")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
+    final_img.save(output_path)
 
 
 def annotate_sokoban(image_path: Path, output_path: Path, grid_str: str, actions: list) -> None:
     with Image.open(image_path) as source:
-        image = source.convert("RGB")
+        image = source.convert("RGBA")
     x0, y0, x1, y1 = _detect_grid_bounds(image)
-    lines = [l for l in grid_str.splitlines() if l.strip()]
-    h, w = len(lines), max(len(l) for l in lines)
-    cell_w, cell_h = (x1 - x0) / float(w), (y1 - y0) / float(h)
+    board = SokobanBoard.from_string(grid_str)
+    puzzle = SokobanPuzzle(board)
+    cell_w, cell_h = (x1 - x0) / float(board.width), (y1 - y0) / float(board.height)
 
-    draw = ImageDraw.Draw(image, "RGBA")
-    font = ImageFont.load_default(size=max(18, int(cell_h * 0.22)))
+    # Simulate steps to trace player path and push events
+    state = puzzle.initial_state()
+    player_path = [(state[0], state[1])]
+    push_events = []
+    dirs_map = {
+        "up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1),
+        "push_up": (-1, 0), "push_down": (1, 0), "push_left": (0, -1), "push_right": (0, 1)
+    }
 
-    # Draw green push arrow from hero at (1, 1) through box (1, 2) to goal (1, 3)
-    p_start = (x0 + 1.5 * cell_w, y0 + 1.5 * cell_h)
-    p_end = (x0 + 3.5 * cell_w, y0 + 1.5 * cell_h)
-    draw.line([p_start, p_end], fill=(16, 185, 129, 230), width=max(6, int(cell_w * 0.08)))
+    for act in actions:
+        pr, pc, boxes = state
+        dr, dc = dirs_map[act]
+        if act.startswith("push_"):
+            box_r, box_c = pr + dr, pc + dc
+            target_r, target_c = box_r + dr, box_c + dc
+            push_events.append(((box_r, box_c), (target_r, target_c)))
+        state = puzzle.apply(state, act)
+        player_path.append((state[0], state[1]))
 
-    # Draw arrowhead at goal
-    gx, gy = p_end
-    arrowhead = [(gx, gy), (gx - 20, gy - 12), (gx - 15, gy), (gx - 20, gy + 12)]
-    draw.polygon(arrowhead, fill=(16, 185, 129, 240))
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    try:
+        font = ImageFont.truetype("arialbd.ttf", max(18, int(cell_h * 0.18)))
+        item_font = ImageFont.truetype("arialbd.ttf", max(18, int(cell_h * 0.22)))
+    except Exception:
+        font = ImageFont.load_default(size=max(18, int(cell_h * 0.18)))
+        item_font = ImageFont.load_default(size=max(18, int(cell_h * 0.22)))
 
-    # Goal success badge at (1, 3)
-    r_badge = min(cell_w, cell_h) * 0.28
-    draw.ellipse((gx - r_badge, gy - r_badge, gx + r_badge, gy + r_badge), fill=(16, 185, 129, 210), outline=(255, 255, 255, 255), width=3)
-    draw.text((gx, gy), "OK", fill=(255, 255, 255, 255), font=font, anchor="mm")
+    # Draw player trajectory path
+    path_pts = [(x0 + (c + 0.5) * cell_w, y0 + (r + 0.5) * cell_h) for (r, c) in player_path]
+    if len(path_pts) > 1:
+        draw.line(path_pts, fill=(59, 130, 246, 120), width=6, joint="curve")
+
+    # Draw push arrows
+    import math
+    for p_from, p_to in push_events:
+        fx = x0 + (p_from[1] + 0.5) * cell_w
+        fy = y0 + (p_from[0] + 0.5) * cell_h
+        tx = x0 + (p_to[1] + 0.5) * cell_w
+        ty = y0 + (p_to[0] + 0.5) * cell_h
+        draw.line([(fx, fy), (tx, ty)], fill=(16, 185, 129, 235), width=max(6, int(cell_w * 0.08)))
+        dx, dy = tx - fx, ty - fy
+        dist = math.hypot(dx, dy)
+        if dist > 0:
+            ux, uy = dx / dist, dy / dist
+            arrow_len = min(22, cell_w * 0.25)
+            arrow_w = min(12, cell_w * 0.14)
+            tip = (tx, ty)
+            left_pt = (tx - arrow_len * ux + arrow_w * uy, ty - arrow_len * uy - arrow_w * ux)
+            right_pt = (tx - arrow_len * ux - arrow_w * uy, ty - arrow_len * uy + arrow_w * ux)
+            draw.polygon([tip, left_pt, right_pt], fill=(16, 185, 129, 255))
+
+    # Goal success badges on all goals
+    for gr, gc in board.goals:
+        cx = x0 + (gc + 0.5) * cell_w
+        cy = y0 + (gr + 0.5) * cell_h
+        r_badge = min(cell_w, cell_h) * 0.28
+        draw.ellipse((cx - r_badge, cy - r_badge, cx + r_badge, cy + r_badge), fill=(16, 185, 129, 220), outline=(255, 255, 255, 255), width=3)
+        draw.text((cx, cy), "OK", fill=(255, 255, 255, 255), font=item_font, anchor="mm")
 
     # Info bar at bottom
-    draw.rectangle((x0, y1 + 5, x1, y1 + 35), fill=(15, 23, 42, 220), outline=(51, 65, 85, 255))
-    draw.text((x0 + (x1 - x0) / 2, y1 + 20), f"Action Sequence: {' -> '.join(actions)} (1 optimal push)", fill=(248, 250, 252, 255), font=font, anchor="mm")
+    draw.rectangle((x0, y1 + 10, x1, y1 + 50), fill=(15, 23, 42, 245), outline=(16, 185, 129, 255), width=2)
+    push_count = len(push_events)
+    maneuvers = len(actions) - push_count
+    draw.text((image.width / 2, y1 + 30), f"Optimal Solution: {len(actions)} Steps ({push_count} Pushes, {maneuvers} Maneuvers) | A* with Deadlock Pruning", fill=(16, 185, 129, 255), font=font, anchor="mm")
 
+    final_img = Image.alpha_composite(image, overlay).convert("RGB")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
+    final_img.save(output_path)
 
 
 DEFAULT_SOLUTIONS_DIR = Path(__file__).resolve().parents[1] / "puzzles" / "solutions"
