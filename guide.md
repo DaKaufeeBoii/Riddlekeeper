@@ -1,210 +1,265 @@
-# Riddlekeeper User Guide
+# Riddlekeeper User & Execution Guide
 
-This guide explains how to use Riddlekeeper to solve structured puzzles using exact search and constraint satisfaction, orchestrate solutions with budgets and execution traces, and run neural reasoning experiments.
+Riddlekeeper is a neuro-symbolic visual puzzle-solving system that combines:
+1. **Algorithmic Alignment**: A Bellman-Ford Graph Neural Network (GNN) trained on small grids ($5\times 5$) that extrapolates zero-shot to large grids ($8\times 8, 10\times 10$).
+2. **Multi-Puzzle Symbolic Constraint Engine**: Exact deterministic solvers for Sudoku (MRV backtracking), $N$-Queens (bitmask conflict search), Sokoban ($\text{A}^*$ search with Hungarian heuristics and corner deadlock pruning), Flow Free (full-board coverage backtracking with dead-end checks), Pipes (rotational CSP), and Words (letter grid DFS).
+3. **Decoupled Visual Perception & Annotation Pipeline**: Translates puzzle screenshots into structured symbolic representations and renders pixel-perfect visual solution overlays.
 
 ---
 
-## 1. Requirements
+## 1. Prerequisites & Environment Setup
 
-* **Python 3.9 or newer**.
-* The symbolic logic solvers (`puzzles/`) and orchestration agent (`agent/`) use only the Python standard library. No external dependencies are required.
-* **PyTorch** is needed only if you wish to run the learned neural grid-navigation models (`train.py`, `evaluate.py`, `demo.py`).
+### System Requirements
+* **Python 3.9+** (Python 3.10, 3.11, 3.12, 3.14 supported).
+* Standard libraries: The symbolic solvers and agent orchestration use only the Python standard library.
+* External libraries required for vision and neural models:
+  ```powershell
+  pip install pillow numpy torch
+  ```
 
-Check your Python version:
+Check your Python environment:
 ```powershell
 python --version
 ```
 
 ---
 
-## 2. CLI Quick Start
+## 2. Exact Steps to Execute the Program
 
-Run any supported puzzle directly from your terminal:
+### Step 1: Solve Puzzles via Command Line (Text & Logic)
+Run [`solve.py`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/solve.py) with the target puzzle name:
 
 ```powershell
-# Standard 9x9 Sudoku
-python -m riddlekeeper.solve sudoku
+# 1. Sudoku (9x9 standard grid with MRV backtracking)
+python solve.py sudoku
 
-# N-Queens (specify custom size N)
-python -m riddlekeeper.solve queens --size 8
+# 2. N-Queens (specify any N, default N=8)
+python solve.py queens --size 8
 
-# Sokoban push-box puzzle (A* with deadlock pruning)
-python -m riddlekeeper.solve sokoban
+# 3. Sokoban Push-Box (Tactical 2-box puzzle with A* & deadlock avoidance)
+python solve.py sokoban
 
-# Flow Free (path search with full-board constraints)
-python -m riddlekeeper.solve flow
+# 4. Flow Free (5x5 5-color puzzle with full-board winding coverage)
+python solve.py flow
 
-# Pipes / Net (rotational constraint satisfaction)
-python -m riddlekeeper.solve pipes
+# 5. Pipes / Net (2x2 rotational network connectivity)
+python solve.py pipes
 
-# Word / Wend search (letter grid path finding)
-python -m riddlekeeper.solve words
+# 6. Words / Wend (3x3 letter grid dictionary path search)
+python solve.py words
 ```
 
-> **Automatic Solution Persistence**:  
-> Every CLI solve command automatically outputs and saves its formatted solution into the centralized directory:  
-> [`riddlekeeper/puzzles/solutions/<puzzle>_solution.txt`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/puzzles/solutions)
+> **Automated Solution Storage**:  
+> Every solve command outputs the step-by-step actions to the terminal and saves the solution to:  
+> [`puzzles/solutions/<puzzle>_solution.txt`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/puzzles/solutions/)
 
 ---
 
-## 3. Python API Examples
+### Step 2: Solve Puzzle Images (Visual Perception & Solution Overlays)
+Riddlekeeper can process puzzle images directly, solve them, and draw the solution onto the original image:
 
-### 3.1 Flow Free
-Connect color pairs across the board so that all cells are filled without paths crossing:
+```powershell
+# 1. Solve a Maze image (draws glowing cyan-pink shortest path)
+python vision/pipeline.py puzzles/puzzle.png
 
+# 2. Solve an 8-Queens chessboard image (places centered ruby queen badges)
+python vision/pipeline.py puzzles/queens_puzzle.png
+
+# 3. Solve a Sudoku image (overlays royal blue digits in light blue cells)
+python vision/pipeline.py puzzles/sudoku_puzzle.png
+
+# 4. Solve a Flow Free image (draws smooth, rounded multi-colored pipes)
+python vision/pipeline.py puzzles/flow_puzzle.png
+
+# 5. Solve a Sokoban warehouse image (draws player path, push vectors, & OK badges)
+python vision/pipeline.py puzzles/sokoban_puzzle.png
+```
+
+> **Visual Solution Output**:  
+> Annotated solution images are automatically saved to:  
+> [`puzzles/solutions/<image_name>_solution.png`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/puzzles/solutions/)
+
+---
+
+### Step 3: Run the Unit Test Suite
+To verify that all 32 unit tests across all puzzle types pass:
+
+```powershell
+python puzzles/tests.py
+```
+
+Expected output:
+```text
+Ran 32 tests in 2.600s
+OK
+```
+
+---
+
+### Step 4: Run Neural GNN Size Extrapolation Experiments
+To evaluate the Bellman-Ford GNN vs. standard CNN policies on out-of-distribution (OOD) grid sizes:
+
+```powershell
+# Run size extrapolation benchmark across 5x5, 8x8, and 10x10 grids
+python evaluate.py
+
+# Run an interactive demonstration with step-by-step rollouts
+python demo.py
+
+# Train the GNN model from scratch on 5x5 configurations
+python train.py
+```
+
+---
+
+## 3. How to Share Your Own Picture to Get Solutions
+
+You can supply your own puzzle screenshot or photo in any of the following three ways:
+
+---
+
+### Method A: Run via the Vision Pipeline CLI (Recommended for Local Files)
+
+1. **Place your puzzle image** anywhere on your system (e.g., `C:\Users\user\Downloads\my_puzzle.png` or in the `puzzles/` directory).
+2. **Execute the pipeline** pointing to your image path:
+   ```powershell
+   python vision/pipeline.py "path/to/my_puzzle.png"
+   ```
+3. To specify a custom output path for the annotated solution:
+   ```powershell
+   python vision/pipeline.py "path/to/my_puzzle.png" --output "path/to/solved_overlay.png"
+   ```
+
+#### How the Pipeline Processes Your Image:
+- **Fast Local Computer Vision**: For clean grid screenshots (Mazes, Chessboards, Sudokus), the built-in parser automatically isolates the grid boundaries using corner-background estimation and extracts board elements in $< 0.05\text{ seconds}$.
+- **Local Vision-Language Model (Ollama)**: For unstandardized screenshots or photos, Riddlekeeper connects to a locally running Ollama instance (e.g., `qwen2.5vl:3b` or `moondream`) to transcribe the board into a structured JSON representation:
+  ```powershell
+  # Step 1: Ensure Ollama is running with a vision model
+  ollama run qwen2.5vl:3b
+
+  # Step 2: Run the pipeline with forced VLM transcription
+  python vision/pipeline.py "path/to/my_puzzle.png" --force-ollama
+  ```
+  *(If running on a CPU-only laptop, use `moondream` for 3–5 second transcription: `--model moondream`)*.
+
+---
+
+### Method B: Upload Directly in Chat (Interactive Pair-Programming)
+
+If working within the Antigravity assistant:
+1. **Drag and drop** or paste your puzzle screenshot directly into this conversation chat.
+2. Tell the assistant: *"Solve this puzzle for me."*
+3. The assistant will:
+   - Read the image pixels directly.
+   - Transcribe the grid layout and entities (start, goal, walls, clues, numbers).
+   - Execute Riddlekeeper's exact symbolic solver on the transcribed configuration.
+   - Return both the text action sequence and render an annotated solution overlay image for you.
+
+---
+
+### Method C: Define Custom Board States via Python API
+
+If you have a puzzle configuration from an app, newspaper, or website and prefer feeding the board state directly in code:
+
+#### 1. Custom Sudoku ($9\times 9$)
 ```python
-from riddlekeeper.puzzles.flow import FlowBoard, FlowPuzzle
+from riddlekeeper.puzzles.sudoku import SudokuPuzzle
 from riddlekeeper.puzzles.registry import default_registry
 
-board = FlowBoard.from_list([
-    [1, 2, 3],
-    [0, 0, 0],
-    [1, 2, 3],
-])
-puzzle = FlowPuzzle(board)
+my_grid = [
+    [0, 0, 0, 2, 6, 0, 7, 0, 1],
+    [6, 8, 0, 0, 7, 0, 0, 9, 0],
+    [1, 9, 0, 0, 0, 4, 5, 0, 0],
+    [8, 2, 0, 1, 0, 0, 0, 4, 0],
+    [0, 0, 4, 6, 0, 2, 9, 0, 0],
+    [0, 5, 0, 0, 0, 3, 0, 2, 8],
+    [0, 0, 9, 3, 0, 0, 0, 7, 4],
+    [0, 4, 0, 0, 5, 0, 0, 3, 6],
+    [7, 0, 3, 0, 1, 8, 0, 0, 0]
+]
+
+puzzle = SudokuPuzzle(my_grid)
 result = default_registry().solve(puzzle)
+
+if result.solved:
+    print(SudokuPuzzle.format(result.final_state))
+```
+
+#### 2. Custom Flow Free ($N\times N$)
+```python
+from riddlekeeper.puzzles.flow import FlowBoard, FlowPuzzle, FlowSolver
+
+# 0 = empty cell; 1, 2, 3... = color endpoint pairs
+my_flow_grid = [
+    [1, 2, 0, 0, 0],
+    [0, 3, 4, 5, 2],
+    [0, 0, 0, 0, 5],
+    [0, 0, 0, 0, 0],
+    [1, 0, 0, 3, 4]
+]
+
+board = FlowBoard.from_list(my_flow_grid)
+puzzle = FlowPuzzle(board)
+result = FlowSolver().solve(puzzle)
 
 if result.solved:
     for color_idx, path in enumerate(result.final_state):
-        color = puzzle.board.all_colors[color_idx]
-        print(f"Color {color}: {path}")
+        print(f"Color {color_idx + 1} path: {' -> '.join(str(p) for p in path)}")
 ```
 
-### 3.2 Pipes / Net
-Rotate tiles (0, 90, 180, or 270 degrees) so that all pipe connections align and form a single connected network:
-
+#### 3. Custom Sokoban Level
 ```python
-from riddlekeeper.puzzles.pipes import PipesBoard, PipesPuzzle
-from riddlekeeper.puzzles.registry import default_registry
+from riddlekeeper.puzzles.sokoban import SokobanBoard, SokobanPuzzle, SokobanSolver
 
-# Pipe types: 'L' (corner), 'I' (line), 'T' (T-junction), '+' (cross), 'C' (end)
-board = PipesBoard.from_list([
-    ["L", "L"],
-    ["L", "L"],
-])
-puzzle = PipesPuzzle(board)
-result = default_registry().solve(puzzle)
+# Standard Sokoban ASCII notation:
+# # = Wall, @ = Player, $ = Box, . = Goal, * = Box on Goal
+my_sokoban_level = """
+######
+#  . #
+# $$ #
+# .# #
+#  @ #
+######
+"""
+
+board = SokobanBoard.from_string(my_sokoban_level.strip())
+puzzle = SokobanPuzzle(board)
+result = SokobanSolver().solve(puzzle)
 
 if result.solved:
-    print("Required clockwise rotations:", result.final_state)
-```
-
-### 3.3 Word / Wend Search
-Find continuous letter paths for given target words:
-
-```python
-from riddlekeeper.puzzles.words import WordGrid, WordsPuzzle
-from riddlekeeper.puzzles.registry import default_registry
-
-grid = WordGrid.from_list([
-    ["C", "A", "T"],
-    ["D", "O", "G"],
-    ["F", "O", "X"],
-])
-puzzle = WordsPuzzle(grid, ["CAT", "DOG", "FOX"], allow_diagonal=True)
-result = default_registry().solve(puzzle)
-
-if result.solved:
-    for word_idx, path in enumerate(result.final_state):
-        print(f"{puzzle.words[word_idx]}: {path}")
-```
-
-### 3.4 Agent Orchestration with Budgets
-Use the high-level `Agent` API to enforce search state limits, time limits, and inspect execution traces:
-
-```python
-from riddlekeeper.agent.api import Agent, Request
-from riddlekeeper.puzzles.queens import QueensPuzzle
-
-agent = Agent()
-puzzle = QueensPuzzle(8)
-
-# Enforce a maximum explored state budget
-req = Request("queens", puzzle, state_limit=5000, time_limit_ms=1000)
-res = agent.handle(req)
-
-print(f"Success: {res.success}")
-print(f"Solver used: {res.solver}")
-print(f"Runtime: {res.runtime_ms:.2f} ms")
-print(f"Trace events: {res.trace}")
+    print(f"Solved in {len(result.actions)} steps!")
+    print("Action sequence:", " -> ".join(result.actions))
 ```
 
 ---
 
-## 4. Running Verification Tests
+## 4. Supported Puzzle Formats & Schema Reference
 
-Run the complete 30-test regression suite:
-```powershell
-python -m riddlekeeper.puzzles.tests
-```
+When transcribing an image or writing an input file, Riddlekeeper uses these standard formats:
 
----
-
-## 5. Visual Perception Pipeline & Common Doubts (FAQ)
-
-Riddlekeeper includes an end-to-end multimodal perception pipeline ([pipeline.py](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/vision/pipeline.py)) that takes an uploaded puzzle screenshot, recognizes the board state, runs the exact algorithmic solver, and annotates the solution path/steps directly onto the original image.
-
-### 5.1 Running the Visual Pipeline
-
-```powershell
-# Solve a Grid Maze image (draws glowing navigation path)
-python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\puzzle.png
-
-# Solve an 8-Queens chessboard image (places ruby badges on ranks)
-python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\queens_puzzle.png
-
-# Solve a Sudoku puzzle image (fills solved numbers in highlighted blue cells)
-python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\sudoku_puzzle.png
-
-# Solve a Flow Free image (draws continuous, non-overlapping colored pipes)
-python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\flow_puzzle.png
-
-# Solve a Sokoban box-pushing image (draws push vectors and step banners)
-python -m riddlekeeper.vision.pipeline riddlekeeper\puzzles\sokoban_puzzle.png
-```
-
-Each command automatically archives the annotated solution image directly into:
-[`riddlekeeper/puzzles/solutions/<image_stem>_solution.png`](file:///d:/Kaufee/padhai/7th-sem/PBA/riddlekeeper/puzzles/solutions)
-while keeping a convenient copy next to the input file (e.g., `riddlekeeper/puzzles/sudoku_puzzle_solution.png`). Custom destinations can also be specified using the `--output` flag.
+| Puzzle | Input Format | Key Symbols / Values | Solution Output |
+| :--- | :--- | :--- | :--- |
+| **Maze** | JSON / Coordinates | Walls `[r, c]`, Start `[r, c]`, Goal `[r, c]` | Discrete moves: `UP`, `DOWN`, `LEFT`, `RIGHT` |
+| **$N$-Queens** | Board size $N$ | Integer $N \ge 4$ | Queen columns per row: `(c_0, c_1, ..., c_{N-1})` |
+| **Sudoku** | 2D list ($9\times 9$) | `0` = Empty, `1–9` = Given digits | Completed $9\times 9$ numerical grid |
+| **Flow Free** | 2D square list | `0` = Empty, `1, 2, 3...` = Color terminal pairs | Orthogonal coordinate paths covering 100% of grid |
+| **Sokoban** | ASCII multi-line string | `#` Wall, `@` Player, `$` Box, `.` Goal | Moves (`up`, `down`...) and Pushes (`push_up`...) |
+| **Pipes** | 2D list of strings | `"L"` Corner, `"I"` Line, `"T"` T-pipe, `"+"` Cross | Clockwise rotation steps `(0, 1, 2, 3)` per cell |
+| **Words** | 2D character matrix + list | Letter grid + list of uppercase search words | Ordered coordinate paths spelling each word |
 
 ---
 
-### 5.2 Frequently Asked Questions & Common Doubts
+## 5. Frequently Asked Questions (FAQ)
 
-#### Q1: "Are the images being generated or edited using Gemini or cloud models in Antigravity?"
-**No, absolutely not.**
-* **Input generation**: The benchmark puzzle images in `riddlekeeper/puzzles/` are generated locally by Python scripts using `matplotlib` and `PIL`.
-* **Solving**: The solvers are pure Python algorithms running on your local machine.
-* **Image editing / annotation**: The solution paths, numbers, badges, and markers are drawn directly onto the original image pixels locally using `Pillow` (`PIL.ImageDraw`).
-* **Zero cloud calls**: The pipeline works completely offline without touching Gemini, Antigravity cloud services, or any external API.
+#### Q1: "Where do the generated solution images go?"
+By default, the pipeline writes directly to:
+```text
+riddlekeeper/puzzles/solutions/<image_filename>_solution.png
+```
+You can also specify any custom destination with `--output custom_name.png`.
 
-#### Q2: "Can Ollama models edit existing input images directly?"
-**No.** Ollama cannot edit or generate images.
-* Ollama is an LLM and Vision-Language Model (VLM) runtime.
-* Models in Ollama (like `qwen2.5vl:3b`, `moondream`, `llava`) only accept images/prompts as input and output **text or JSON**. They do not possess image-generation or pixel-rendering heads.
-* In Riddlekeeper, Ollama is used exclusively as a **visual transcriber** (converting pixels into a JSON grid representation). The actual image editing is then handled deterministically by Pillow.
+#### Q2: "Can the solver handle images with margins, title text, or coordinates?"
+**Yes.** The adaptive grid detector in `vision/pipeline.py` uses corner-background sampling and contiguous cell chunking to crop out headers, rank/file coordinate labels (like `A–H`, `1–8` on chessboards), and background borders before solving and annotating.
 
-#### Q3: "Why not use a Generative Image AI (like Stable Diffusion / Flux / DALL-E) to draw the solutions?"
-Generative diffusion models hallucinate pixels. If you prompt an image generator to "draw the solution" on a Sudoku or Maze:
-* Numbers get duplicated or distorted.
-* Maze paths pass through solid walls or break continuity.
-* Grid geometry becomes crooked.
-
-Production visual intelligence systems (such as Photomath, Google Lens, and Chess.com) use a **decoupled 3-stage architecture**:
-1. **Perception**: Vision model or computer vision reads the image into structured data.
-2. **Reasoning**: Exact mathematical algorithms solve the puzzle with 100% accuracy and 0 hallucination.
-3. **Rendering**: Deterministic graphics engine overlays the solution with sub-pixel precision.
-
-#### Q4: "Why does Ollama take 2–4 minutes per image on my computer?"
-If your PC lacks a dedicated NVIDIA GPU (running on CPU), Ollama must compute billions of floating-point operations across CPU threads for high-resolution visual tokens.
-* **Instant local perception (< 0.05s)**: Riddlekeeper includes `transcribe_local`, which detects clean puzzle layouts instantly without needing an LLM.
-* **Fastest CPU Vision Model**: Install **Moondream2** (`ollama pull moondream`). At 1.8B parameters, it runs in ~3–8 seconds on standard CPUs.
-
-#### Q5: "Can Riddlekeeper handle different image sizes and board dimensions?"
-**Yes.** 
-* The visual pipeline features an adaptive grid detector (`_detect_grid_bounds`) that separates puzzle grids from title banners and margins across any resolution.
-* The algorithmic solvers are size-invariant: N-Queens solves for any $N$, Sudoku solves standard and custom grids, and Mazes/Flow Free/Sokoban solve arbitrary row and column counts up to specified state budgets.
-
-#### Q6: "What happens if a user uploads an impossible or broken puzzle?"
-Because Riddlekeeper uses exact search and constraint satisfaction rather than probabilistic text generation, it will **never invent a false solution**. If a puzzle cannot be solved, the engine returns `solved=False` with the number of explored states and explains why no path exists.
-
+#### Q3: "What happens if a puzzle has no solution or is invalid?"
+Because Riddlekeeper uses exact search and constraint satisfaction rather than probabilistic text generation, it will **never hallucinate an impossible answer**. If no valid sequence exists, the solver returns `solved=False` with the number of explored states and an informative termination message.
